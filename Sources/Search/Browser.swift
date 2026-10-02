@@ -639,7 +639,8 @@ final class Browser: NSObject, ObservableObject {
     struct Suggesting: Equatable {
         let tab: Tab.ID
         var spot: CGRect
-        let logins: [Login]
+        /// Without their passwords: the one picked is read when it is.
+        let logins: [Kept]
         /// The Mac's passkeys for a page waiting for one under its field.
         var passkeys: [Passkeys.Offered] = []
         /// The page the list was made for: its site, and whether it came in
@@ -735,7 +736,7 @@ final class Browser: NSObject, ObservableObject {
         // Passwords only for a box that goes with one: a box for passkeys
         // alone has no password to put anywhere.
         let known = prefs.fillsPasswords && passwords
-            ? Array(Vault.logins(matching: host).filter { !inTheClear || $0.clear }.prefix(5)) : []
+            ? Array(Vault.kept(matching: host).filter { !inTheClear || $0.clear }.prefix(5)) : []
         let passkeys = Passkeys.shared.offered(in: tab.built)
         guard !known.isEmpty || !passkeys.isEmpty else {
             suggesting = nil
@@ -750,7 +751,7 @@ final class Browser: NSObject, ObservableObject {
     }
 
     /// One of the accounts in the list, picked by name.
-    func choose(_ login: Login) {
+    func choose(_ login: Kept) {
         lowering?.cancel()
         guard let list = suggesting, let tab = tabs.first(where: { $0.id == list.tab }) else { return }
         guard Date().timeIntervalSince(list.shown) > 0.5 else { return }
@@ -761,8 +762,13 @@ final class Browser: NSObject, ObservableObject {
         guard curtain.host(of: tab.pageAddress) == list.host,
               (tab.pageAddress?.scheme?.lowercased() == "http") == list.clear
         else { return }
+        // Read now, the one picked: the list was made without secrets.
+        guard let password = Vault.secret(of: login) else {
+            announce("The keychain refused it")
+            return
+        }
         pickedInto = tab.id
-        tab.fill(user: login.user, password: login.password) { [weak self] worked in
+        tab.fill(user: login.user, password: password) { [weak self] worked in
             if !worked { self?.announce("Couldn't find the sign-in fields anymore") }
         }
         Vault.touch(login)
@@ -3698,9 +3704,10 @@ final class Browser: NSObject, ObservableObject {
             // A password manager extension that asked Chrome's way to do the
             // saving itself.
             if #available(macOS 15.4, *), Extensions.shared.passwordSavingTakenBy != nil { return }
-            let known = Vault.logins(for: host)
-            // Nothing to ask about one that is already known.
-            if var same = known.first(where: { $0.user == user && $0.password == password }) {
+            let known = Vault.kept(for: host)
+            // Nothing to ask about one that is already known. Only this
+            // account's password is read to tell, not every one kept here.
+            if var same = known.first(where: { $0.user == user && Vault.secret(of: $0) == password }) {
                 // Where it was last used is where it is offered from now on.
                 same.clear = clear
                 Vault.touch(same)

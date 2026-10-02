@@ -3,7 +3,8 @@
 This is a fork of [Search](https://github.com/driceroland/Search) by Office Commun (MIT).
 Everything here is upstream's work except the changes below, which are all in
 **Settings › Passwords › Bring things over**, for Chromium browsers (Chrome,
-Dia, Arc, Brave, Edge, Vivaldi, …), plus pointer lock for 3D pages (section 3).
+Dia, Arc, Brave, Edge, Vivaldi, …), plus pointer lock for 3D pages (section 3) and
+an end to repeated keychain dialogs on sign-in pages (section 4).
 
 "Search" and its icon belong to Office Commun. This fork publishes source only;
 if you ship builds of it, rename the app first, as upstream's README asks.
@@ -80,6 +81,34 @@ it does in Safari, Chrome and Dia.
 Code: `askedForPointer`, `lostPointer` and `releasePointer` in
 `Sources/Search/Browser.swift`, and the Esc handling in `App.swift`.
 
+## 4. One keychain dialog per account, not one per account per click
+
+On a sign-in page, a build of your own could put up "Search wants to use your
+confidential information stored in “Search” in your keychain" over and over,
+and Deny, Allow and Always Allow all brought the next one. Two things together:
+
+- **The list under a sign-in box read every account's password before it was
+  drawn.** Each read is a dialog wherever the keychain doesn't trust this
+  build, and every item is labelled "Search", so they all look the same: 23
+  in a row on one site with many subdomains, all over again whenever the caret
+  came back into the box. The list is now made from the items' names alone,
+  and only the account you pick is read. Saving after a sign-in reads only
+  that account's password, and marking one as just used rewrites only its
+  date, not the password.
+- **An ad-hoc signature is a stranger after every rebuild.** The keychain
+  knows an ad-hoc app by the hash of that one build, so "Always Allow" lasted
+  until the next `./build.sh`. Without a Developer ID, `build.sh` now signs
+  with an Apple Development certificate when there is one, a signature that
+  stays the same app from build to build. `SEARCH_LOCAL_IDENTITY` names the
+  certificate; keep it the same, because a different one is a stranger too.
+
+Passwords kept by an earlier build still ask once each, the first time each
+account is picked; Always Allow then holds across rebuilds.
+
+Code: `kept(for:)`, `kept(matching:)` and `touch(_:)` in
+`Sources/Search/Vault.swift`, `hang`, `choose` and `onCredentials` in
+`Sources/Search/Browser.swift`, and the signing step in `build.sh`.
+
 ## Tests
 
 - `Tests/SearchTests/ImportCookiesTests.swift` covers the domain-hash check and
@@ -105,3 +134,5 @@ swift test --filter "ImportCookiesTests|ImportFileTests|PointerLockTests"
 
 - `build.sh`: `SEARCH_BUILD_DISABLE_SANDBOX=1` passes `--disable-sandbox` to
   SwiftPM, for building inside an environment that is already sandboxed.
+- `build.sh`: `SEARCH_LOCAL_IDENTITY` names the Apple Development certificate
+  a local build is signed with (section 4).

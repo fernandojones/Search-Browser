@@ -3,7 +3,8 @@
 # asked, the disk image people install it from and the ZIP the updater
 # fetches.
 #
-#   ./build.sh                 debug-free release build, ad-hoc signed: runs here
+#   ./build.sh                 debug-free release build, signed for this Mac
+#                                (Apple Development, else ad-hoc): runs here
 #   ./build.sh release dmg     + build/Search.dmg, build/Search.zip and
 #                                build/appcast.json, signed with Developer ID
 #                                if there is one in the keychain
@@ -218,10 +219,27 @@ if [ -n "$IDENTITY" ]; then
     --sign "$IDENTITY" "$APP"
   echo "signed as: $IDENTITY"
 else
+  # No Developer ID: an Apple Development certificate, when there is one, for
+  # the copy that runs here. Ad-hoc, the keychain knows the app only by the
+  # hash of that one build, so every rebuild is a stranger to the passwords
+  # the last one kept: macOS asks for each again, with the login password,
+  # and "Always Allow" lasts until the next ./build.sh. A certificate's
+  # signature stays the same app from build to build. SEARCH_LOCAL_IDENTITY
+  # names one; keep it the same, or the keychain asks again once per item.
+  LOCAL="${SEARCH_LOCAL_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
+    | grep -o '"Apple Development: [^"]*"' | head -1 | tr -d '"' || true)}"
   # A build that cannot sign at all is not a build: `|| true` here let one
   # through as though it had finished, leaving a bundle that would not open.
   # set -e stops it now, with codesign's own words above.
-  codesign --force --deep --sign - "$APP"
+  if [ -n "$LOCAL" ]; then
+    # The passkeys entitlement needs the Developer ID profile behind it.
+    codesign --force --deep --timestamp=none --options runtime \
+      --entitlements Search.entitlements \
+      --sign "$LOCAL" "$APP"
+    echo "signed as: $LOCAL (this Mac only)"
+  else
+    codesign --force --deep --sign - "$APP"
+  fi
   [ "$STEP" != "app" ] && echo "no Developer ID certificate found — the DMG will only open on this Mac" >&2
 fi
 
