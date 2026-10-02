@@ -1,5 +1,7 @@
 # Search
 
+> **Search-Browser fork.** This fork of [driceroland/Search](https://github.com/driceroland/Search) adds two things to Bring things over: **cookie and sign-in import** from Chromium browsers, and **each browser profile as its own named Space**. See [FORK.md](FORK.md). Everything else is upstream's work, credited below.
+
 A small, fast, quiet web browser for the Mac, by [Office Commun](https://officecommun.com).
 
 ![Search, with its tabs down the left and a page taking the rest of the window](.github/screenshot.png)

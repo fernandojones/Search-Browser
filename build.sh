@@ -66,6 +66,8 @@ MINIMUM="14.0"
 # launch 337 against 338 ms, a scroll frame 0.26 against 0.25 ms, a key typed
 # 0.41 ms either way, measured interleaved on 1.0.4 (27 Sep 2026).
 SWIFTFLAGS=(-c "$CONFIG" --arch "$ARCH")
+# A build inside an existing sandbox cannot start SwiftPM's nested sandbox.
+[ "${SEARCH_BUILD_DISABLE_SANDBOX:-0}" = "1" ] && SWIFTFLAGS+=(--disable-sandbox)
 [ "$CONFIG" = "release" ] && SWIFTFLAGS+=(-Xswiftc -Osize)
 swift build "${SWIFTFLAGS[@]}"
 BINARY="$(swift build "${SWIFTFLAGS[@]}" --show-bin-path)/Search"
