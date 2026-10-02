@@ -3,7 +3,7 @@
 This is a fork of [Search](https://github.com/driceroland/Search) by Office Commun (MIT).
 Everything here is upstream's work except the changes below, which are all in
 **Settings › Passwords › Bring things over**, for Chromium browsers (Chrome,
-Dia, Arc, Brave, Edge, Vivaldi, …).
+Dia, Arc, Brave, Edge, Vivaldi, …), plus pointer lock for 3D pages (section 3).
 
 "Search" and its icon belong to Office Commun. This fork publishes source only;
 if you ship builds of it, rename the app first, as upstream's README asks.
@@ -62,6 +62,24 @@ One switch turns every profile of a multi-profile browser into its own
 Code: `Browser.spaces(forProfiles:usual:)` in `Sources/Search/Spaces.swift`,
 and the "Each profile as a Space" option in `ImportPanel.swift`.
 
+## 3. Pointer lock for games and 3D pages
+
+3D games and viewers that steer with the mouse call `requestPointerLock()`:
+the cursor is hidden and the page reads raw mouse movement. In a `WKWebView`
+the host app has to grant this through WebKit's private UI delegate
+(`_webViewDidRequestPointerLock:completionHandler:`). Upstream Search never
+answered, so WebKit refused every request and mouse-look didn't work, though
+it does in Safari, Chrome and Dia.
+
+- Granted only to the tab in front, in the window in front. WebKit itself
+  only asks after a click on the page.
+- **Esc** gives the pointer back before any of Search's own Esc actions run,
+  as in Safari, so the cursor can't be stranded.
+- `_webViewDidLosePointerLock:` clears the state when the page lets go itself.
+
+Code: `askedForPointer`, `lostPointer` and `releasePointer` in
+`Sources/Search/Browser.swift`, and the Esc handling in `App.swift`.
+
 ## Tests
 
 - `Tests/SearchTests/ImportCookiesTests.swift` covers the domain-hash check and
@@ -75,8 +93,12 @@ and the "Each profile as a Space" option in `ImportPanel.swift`.
   cookie set in one profile's Space not being visible in another Space or in
   the first one.
 
+- `Tests/SearchTests/PointerLockTests.swift` checks that WebKit can find the
+  pointer-lock answers by their exact Objective-C names, that a page outside
+  the front tab is refused, and that pages are offered `requestPointerLock`.
+
 ```sh
-swift test --filter "ImportCookiesTests|ImportFileTests"
+swift test --filter "ImportCookiesTests|ImportFileTests|PointerLockTests"
 ```
 
 ## Other

@@ -1107,6 +1107,9 @@ final class Browser: NSObject, ObservableObject {
     @Published private(set) var asking: CaptureAsk?
     private var decide: ((WKPermissionDecision) -> Void)?
     private var askedAbout = ""
+    /// The page holding the pointer, a game's mouse-look say, until Escape
+    /// or WebKit lets it go.
+    private(set) weak var pointerLocked: WKWebView?
 
     func allowCapture() { answerCapture(.grant) }
     func allowCaptureOnce() { answerCapture(.grant, keep: false) }
@@ -4633,6 +4636,35 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             askedAbout = "\(site)|notifications"
             asking = CaptureAsk(host: origin.host, wants: "notifications")
         }, drop: { decisionHandler(false) })
+    }
+
+    /// A page asking to hold the pointer: a 3D game or a map turning with
+    /// the mouse, which hides the cursor and reads its movement alone.
+    /// WebKit asks this through a delegate method that isn't public on the
+    /// Mac; unanswered, every page is refused and the game never sees the
+    /// mouse move. WebKit only asks after a click on the page, as Safari
+    /// does; here only the tab in front, in the window in front, gets it.
+    /// Escape gives the pointer back (see App's key handling).
+    @objc(_webViewDidRequestPointerLock:completionHandler:)
+    func askedForPointer(_ webView: WKWebView, completionHandler: @escaping (Bool) -> Void) {
+        guard let tab = tab(for: webView), tab.id == activeID, webView.window?.isKeyWindow == true else {
+            return completionHandler(false)
+        }
+        pointerLocked = webView
+        completionHandler(true)
+    }
+
+    @objc(_webViewDidLosePointerLock:)
+    func lostPointer(_ webView: WKWebView) {
+        if pointerLocked === webView { pointerLocked = nil }
+    }
+
+    /// The pointer back from the page holding it; false when none was.
+    func releasePointer() -> Bool {
+        guard let page = pointerLocked else { return false }
+        pointerLocked = nil
+        page.evaluateJavaScript("document.exitPointerLock()")
+        return true
     }
 
     /// "scheme://host[:port]", the way an origin is kept for its answers.
