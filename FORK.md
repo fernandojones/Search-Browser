@@ -3,8 +3,9 @@
 This is a fork of [Search](https://github.com/driceroland/Search) by Office Commun (MIT).
 Everything here is upstream's work except the changes below, which are all in
 **Settings › Passwords › Bring things over**, for Chromium browsers (Chrome,
-Dia, Arc, Brave, Edge, Vivaldi, …), plus pointer lock for 3D pages (section 3) and
-an end to repeated keychain dialogs on sign-in pages (section 4).
+Dia, Arc, Brave, Edge, Vivaldi, …), plus pointer lock for 3D pages (section 3),
+an end to repeated keychain dialogs on sign-in pages (section 4) and two
+changes to the tab row (section 5).
 
 "Search" and its icon belong to Office Commun. This fork publishes source only;
 if you ship builds of it, rename the app first, as upstream's README asks.
@@ -108,6 +109,19 @@ account is picked; Always Allow then holds across rebuilds.
 Code: `kept(for:)`, `kept(matching:)` and `touch(_:)` in
 `Sources/Search/Vault.swift`, `hang`, `choose` and `onCredentials` in
 `Sources/Search/Browser.swift`, and the signing step in `build.sh`.
+
+## 5. The tab row
+
+- **Reload sits right before the pinned tabs**, after the Space's icon,
+  wherever back and forward are. Settings › Tabs' switch is now "Back and
+  forward on the left" and moves only those two.
+- **A double-click on the empty part of the row does what a title bar's
+  does** (zoom, unless System Settings › Desktop & Dock says otherwise), as the
+  corner left of the tabs already did, rather than open a new tab. The plus
+  and ⌘T open tabs. The empty space below the tabs in the sidebar still opens
+  one.
+
+Code: `ReloadDoor` and `Helm(reloads:)` in `Sources/Search/TabBar.swift`.
 
 ## Tests
 

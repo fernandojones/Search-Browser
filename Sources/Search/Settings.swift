@@ -380,12 +380,12 @@ struct SettingsPanel: View {
 
     // MARK: - tabs
 
-    /// Where back, forward and reload sit with the tabs across the top. With
-    /// the sidebar they are already beside the window's buttons: nothing to
-    /// move, and the line isn't shown.
+    /// Where back and forward sit with the tabs across the top; reload is
+    /// always right before the tabs. With the sidebar they are already
+    /// beside the window's buttons: nothing to move, and the line isn't shown.
     private var toolbar: some View {
         Card {
-            Line("Back, forward and reload on the left", "Beside the window's buttons, before the tabs") {
+            Line("Back and forward on the left", "Beside the window's buttons, before the tabs") {
                 Switch(on: $prefs.navigationLeft)
             }
         }

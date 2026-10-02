@@ -21,8 +21,12 @@ struct TabBar: View {
     /// The plus only comes out when the pointer is in the row.
     @State private var nearby = false
     @State private var plussed = false
-    /// The helm's width when it stands before the tabs rather than after them.
-    private var leading: CGFloat { browser.prefs.navigationLeft ? Metrics.helm - 8 + Metrics.tabGap : 0 }
+    /// What stands before the tabs: reload, always, and back and forward
+    /// too when they are asked to the left.
+    private var leading: CGFloat {
+        let reload = 26 + Metrics.tabGap
+        return browser.prefs.navigationLeft ? 2 * 26 + 4 + Metrics.tabGap + reload : reload
+    }
     /// How wide the doors at the far end are, extension buttons included.
     @State private var doors: CGFloat = 0
 
@@ -35,20 +39,26 @@ struct TabBar: View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 // The empty half of the strip is what you grab to move the
-                // window; the tabs keep the run they sit on.
-                DragStrip(reserved: lights + dot + leading + (making ? min(540, room(in: geo.size.width)) : run(in: geo.size.width)) + Metrics.tabGap + Metrics.plusWidth, trailing: doors + 12, onDoubleClick: browser.newTab)
+                // window; the tabs keep the run they sit on. It is title bar
+                // like the lights' corner, and a double-click there does what
+                // a title bar's does — zooms, by default — rather than open
+                // a tab: the plus and ⌘T are for that.
+                DragStrip(reserved: lights + dot + leading + (making ? min(540, room(in: geo.size.width)) : run(in: geo.size.width)) + Metrics.tabGap + Metrics.plusWidth, trailing: doors + 12)
                 // And the corner the lights sit in, which is title bar too —
                 // the one stretch left to take hold of when tabs fill the row.
                 DragStrip()
                     .frame(width: lights)
 
                 HStack(spacing: Metrics.tabGap) {
-                    // Back, forward and reload by the lights, when asked.
-                    if browser.prefs.navigationLeft { Helm(browser: browser) }
+                    // Back and forward by the lights, when asked.
+                    if browser.prefs.navigationLeft { Helm(browser: browser, reloads: false) }
                     // The space on screen, first, when there are spaces.
                     // Above the tabs, for the name it shows over them a moment
                     // after a switch.
                     if browser.prefs.usesSpaces { SpaceDot(browser: browser).zIndex(1) }
+                    // Reload, right before the pinned tabs, wherever back and
+                    // forward are.
+                    ReloadDoor(browser: browser)
 
                     // The tabs, in a run of their own. While they fit, it is
                     // exactly as wide as they are and nothing about the row
@@ -150,14 +160,14 @@ struct TabBar: View {
 
                     Spacer(minLength: 0)
 
-                    // Back, forward, reload, and the bookmarks, at the far end
-                    // of the row. The dropdown hangs from the last one.
+                    // Back, forward and the bookmarks, at the far end of the
+                    // row. The dropdown hangs from the last one.
                     HStack(spacing: Metrics.tabGap) {
                         // Only while a download is running, and a moment after.
                         FetchDoor(browser: browser, fetches: browser.fetches)
                         ExtensionSlot()
                         if !browser.prefs.navigationLeft {
-                            Helm(browser: browser).padding(.trailing, 8)
+                            Helm(browser: browser, reloads: false).padding(.trailing, 8)
                         }
                         BookmarkDoor(browser: browser, arrowEdge: .bottom)
                     }
@@ -430,17 +440,20 @@ struct TabBar: View {
 /// far end of the row, in the sidebar.
 struct Helm: View {
     @ObservedObject var browser: Browser
+    /// Whether reload goes with them. Across the top it stands on its own,
+    /// just before the tabs (ReloadDoor).
+    var reloads = true
 
     var body: some View {
         if let tab = browser.active {
-            Wheel(browser: browser, tab: tab)
+            Wheel(browser: browser, tab: tab, reloads: reloads)
         } else {
             // Nowhere to go and nothing to reload: the doors stay in place,
             // greyed, so the row doesn't shift when a tab arrives.
             HStack(spacing: 4) {
                 Door(icon: "chevron.left") {}
                 Door(icon: "chevron.right") {}
-                Door(icon: "arrow.clockwise") {}
+                if reloads { Door(icon: "arrow.clockwise") {} }
             }
             .opacity(0.3)
             .allowsHitTesting(false)
@@ -450,6 +463,7 @@ struct Helm: View {
     private struct Wheel: View {
         let browser: Browser
         @ObservedObject var tab: Tab
+        let reloads: Bool
 
         var body: some View {
             let back = !tab.isBlank && tab.canGoBack
@@ -461,18 +475,44 @@ struct Helm: View {
                 Door(icon: "chevron.right", help: "Forward   ⌘]") { browser.forward() }
                     .disabled(!forward)
                     .opacity(forward ? 1 : 0.3)
-                // Reload, or stop while it is still coming.
-                Door(
-                    icon: tab.loading ? "xmark" : "arrow.clockwise",
-                    help: tab.loading ? "Stop   ⌘." : "Reload   ⌘R"
-                ) {
-                    if tab.loading { tab.stop() } else { browser.reload() }
-                }
-                .disabled(tab.isBlank)
-                .opacity(tab.isBlank ? 0.3 : 1)
+                if reloads { ReloadDoor.Live(browser: browser, tab: tab) }
             }
             .animation(Motion.quick, value: back)
             .animation(Motion.quick, value: forward)
+        }
+    }
+}
+
+/// Reload, or stop while the page is still coming, for the live tab. Its
+/// own door across the top, right before the pinned tabs; one of the helm's
+/// three in the sidebar.
+struct ReloadDoor: View {
+    @ObservedObject var browser: Browser
+
+    var body: some View {
+        if let tab = browser.active {
+            Live(browser: browser, tab: tab)
+        } else {
+            // Nothing to reload: greyed, in place, as the helm's doors are.
+            Door(icon: "arrow.clockwise") {}
+                .opacity(0.3)
+                .allowsHitTesting(false)
+        }
+    }
+
+    struct Live: View {
+        let browser: Browser
+        @ObservedObject var tab: Tab
+
+        var body: some View {
+            Door(
+                icon: tab.loading ? "xmark" : "arrow.clockwise",
+                help: tab.loading ? "Stop   ⌘." : "Reload   ⌘R"
+            ) {
+                if tab.loading { tab.stop() } else { browser.reload() }
+            }
+            .disabled(tab.isBlank)
+            .opacity(tab.isBlank ? 0.3 : 1)
             .animation(Motion.quick, value: tab.loading)
         }
     }
