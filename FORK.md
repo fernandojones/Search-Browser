@@ -120,8 +120,14 @@ Code: `kept(for:)`, `kept(matching:)` and `touch(_:)` in
   corner left of the tabs already did, rather than open a new tab. The plus
   and ⌘T open tabs. The empty space below the tabs in the sidebar still opens
   one.
+- **Closing the tab on screen takes you back to the tab you were on before
+  it** (the one touched last), as Chrome does, rather than to its neighbour
+  in the row. A split's other half still comes first. Pins that have been put
+  down and bench tabs are skipped. The neighbour is used only if no other tab
+  qualifies.
 
-Code: `ReloadDoor` and `Helm(reloads:)` in `Sources/Search/TabBar.swift`.
+Code: `ReloadDoor` and `Helm(reloads:)` in `Sources/Search/TabBar.swift`;
+`Browser.close(_:)` in `Sources/Search/Browser.swift`.
 
 ## Tests
 

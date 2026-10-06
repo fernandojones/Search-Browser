@@ -2671,11 +2671,18 @@ final class Browser: NSObject, ObservableObject {
         tabs.remove(at: index)
         removeEmptyGroup(tab.groupID)
         if activeID == tab.id {
-            // The neighbour on the right, or the last one if there is no
-            // right — through select(), same as everywhere else you land on
-            // a tab, so one that was never built yet actually wakes up
-            // instead of sitting there blank until a manual reload.
-            select(partner ?? tabs[min(index, tabs.count - 1)])
+            // Back to the tab you were on before this one — the one touched
+            // last — as a pinned tab's ⌘W already did. The row's neighbour
+            // dropped you somewhere you had not been. A pin put down and a
+            // bench tab are passed over: neither is a place you were. The
+            // neighbour only when there is nothing else. Through select(),
+            // same as everywhere else you land on a tab, so one that was
+            // never built yet actually wakes up instead of sitting there
+            // blank until a manual reload.
+            let back = tabs
+                .filter { !$0.bench && !($0.pin != nil && $0.asleep) }
+                .max(by: { $0.touched < $1.touched })
+            select(partner ?? back ?? tabs[min(index, tabs.count - 1)])
         }
         rememberSession()
     }
