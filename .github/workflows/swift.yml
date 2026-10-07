@@ -10,13 +10,20 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build: 
-
+  build:
     runs-on: macos-15-intel
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: swift build -v
-    - name: Run tests
-      run: swift test -v
+      - uses: actions/checkout@v4
+
+      - name: Build App (Release)
+        run: swift build -c release -v
+
+      - name: Run tests
+        run: swift test -v
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-binary
+          path: .build/release/
